@@ -1,10 +1,23 @@
 import csvParse from 'csv-parse';
 import fs from 'fs';
+import { getRepository, getCustomRepository, In } from 'typeorm';
 
 import Transaction from '../models/Transaction';
+import Category from '../models/Category';
+import TransactionRepository from '../repositories/TransactionsRepository';
+
+interface CSVTransaction {
+  title: string;
+  type: 'income' | 'outcome';
+  value: number;
+  category: string;
+}
 
 class ImportTransactionsService {
   async execute(filePath: string): Promise<Transaction[]> {
+    const transactionsRepository = getCustomRepository(TransactionRepository);
+    const categoriesRepository = getRepository(Category);
+
     const contactsReadStream = fs.createReadStream(filePath);
 
     const parsers = csvParse({
@@ -15,8 +28,8 @@ class ImportTransactionsService {
     const parseCSV = contactsReadStream.pipe(parsers);
 
     // Cria duas consts para que não seja slavo no DB todos de uma só vez.
-    const transactions = [];
-    const categories = [];
+    const transactions: CSVTransaction[] = [];
+    const categories: string[] = [];
 
     /*
       Pega cada linha retirando o espaço entre cada elemento
@@ -35,7 +48,19 @@ class ImportTransactionsService {
     });
     await new Promise(resolve => parseCSV.on('end', resolve));
 
-    return { categories, transactions };
+    // Informa se no BD existe alguma das categorias
+    const existentCategories = await categoriesRepository.find({
+      where: {
+        title: In(categories),
+      },
+    });
+
+    const existentCategoriesTitles = existentCategories.map(
+      (category: Category) => category.title,
+    );
+
+    console.log(existentCategoriesTitles);
+    // console.log(transactions);
   }
 }
 
