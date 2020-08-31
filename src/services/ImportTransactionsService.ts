@@ -55,12 +55,25 @@ class ImportTransactionsService {
       },
     });
 
+    // Retorna somente os títulos das categorias
     const existentCategoriesTitles = existentCategories.map(
       (category: Category) => category.title,
     );
 
-    console.log(existentCategoriesTitles);
-    // console.log(transactions);
+    // Inclue a categoria se ela ainda não existe
+    const addCategoryTitles = categories
+      .filter(category => !existentCategoriesTitles.includes(category))
+      .filter((value, index, self) => self.indexOf(value) === index);
+
+    const newCategories = categoriesRepository.create(
+      addCategoryTitles.map(title => ({
+        title,
+      })),
+    );
+
+    await categoriesRepository.save(newCategories);
+
+    console.log(newCategories);
   }
 }
 
